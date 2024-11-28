@@ -1,5 +1,5 @@
 # Green's Function Total Field Inversion (gTFI) for Quantitative Susceptibility Mapping
-
+![输入图片描述](README_md_files/17ce1000-ad89-11ef-8795-ffc8b7b71db1.jpeg?v=1&type=image)
 ## Introduction
 
 Quantitative susceptibility mapping (QSM) is a magnetic resonance imaging technique that quantifies tissue magnetic susceptibility by deconvolving the measured signal phase data. Accurate background field removal is essential for QSM, particularly in surface regions of the brain, such as the cerebral cortex, where background field interference can be substantial.
