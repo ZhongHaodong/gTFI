@@ -1,0 +1,97 @@
+gq_number = 64;
+omege = dom(mesh,gq_number);
+[Xq,W,~] = domQuadrature(omege);
+Xq2 = reshape(Xq,[gq_number,size(omege.msh.elt,1),3]);
+W2 = reshape(W,[gq_number,size(omege.msh.elt,1)]);
+
+t = 1;
+verts_idx = mesh.elt(t, :);
+
+% 获取顶点坐标
+V1 = mesh.vtx(verts_idx(1), :);
+V2 = mesh.vtx(verts_idx(2), :);
+V3 = mesh.vtx(verts_idx(3), :);
+
+% 计算边的向量
+E12 = V2 - V1; % 边 V1->V2
+E23 = V3 - V2; % 边 V2->V3
+E31 = V1 - V3; % 边 V3->V1
+
+% 计算单位向量
+n12 = E12 / norm(E12);
+n23 = E23 / norm(E23);
+n31 = E31 / norm(E31);
+
+P_i = [0, 0, 0];
+
+
+% 计算从 P_i 指向顶点的向量
+% 由于 P_i 是多个点，需要使用矩阵运算
+% 扩展 V1, V2, V3，使其尺寸与 P_i 相同
+n_points = size(P_i, 1);
+V1_mat = repmat(V1, n_points, 1);
+V2_mat = repmat(V2, n_points, 1);
+V3_mat = repmat(V3, n_points, 1);
+
+r_V1_Pi = V1_mat - P_i; % 尺寸 [n_points, 3]
+r_V2_Pi = V2_mat - P_i;
+r_V3_Pi = V3_mat - P_i;
+
+nv_t = nv(t, :);
+% 计算点积的符号，得到 1 或 -1
+v = sum(r_V1_Pi .* nv_t, 2);
+signs = sign(v); % 尺寸为 [n_points_in_triangle, 1]
+
+% 计算 p_k = r_Vk_Pi × n_{k(k+1)}
+% 注意，对于每个点，需要进行矩阵运算
+p1 = cross(r_V1_Pi, n12); % 尺寸 [n_points_in_triangle, 3]
+p2 = cross(r_V2_Pi, n23);
+p3 = cross(r_V3_Pi, n31);
+
+
+cos_theta_p1_p2 = sum(p1 .* p2, 2) ./ (vecnorm(p1, 2, 2) .* vecnorm(p2, 2, 2));
+% 防止数值误差导致 cos_theta 超出 [-1,1]
+cos_theta_p1_p2 = max(min(cos_theta_p1_p2, 1), -1);
+angle_p1_p2 = acos(cos_theta_p1_p2); % 以弧度为单位
+
+% p2 和 p3 的夹角
+cos_theta_p2_p3 = sum(p2 .* p3, 2) ./ (vecnorm(p2, 2, 2) .* vecnorm(p3, 2, 2));
+cos_theta_p2_p3 = max(min(cos_theta_p2_p3, 1), -1);
+angle_p2_p3 = acos(cos_theta_p2_p3);
+
+% p3 和 p1 的夹角
+cos_theta_p3_p1 = sum(p3 .* p1, 2) ./ (vecnorm(p3, 2, 2) .* vecnorm(p1, 2, 2));
+cos_theta_p3_p1 = max(min(cos_theta_p3_p1, 1), -1);
+angle_p3_p1 = acos(cos_theta_p3_p1);
+
+thita = signs.*(2*pi-(angle_p1_p2 + angle_p2_p3 + angle_p3_p1));
+H = -1/(4*pi)*thita;
+
+%% G
+o1 = sum(p1 .* repmat(n12, n_points, 1), 2);
+o2 = sum(p2 .* repmat(n23, n_points, 1), 2);
+o3 = sum(p3 .* repmat(n31, n_points, 1), 2);
+
+norm_r_V1_Pi = sqrt(sum(r_V1_Pi.^2, 2));
+norm_r_V2_Pi = sqrt(sum(r_V2_Pi.^2, 2));
+norm_r_V3_Pi = sqrt(sum(r_V3_Pi.^2, 2));
+
+dot_r_V1_Pi_n12 = sum(r_V1_Pi .* repmat(n12, n_points, 1), 2);
+dot_r_V2_Pi_n23 = sum(r_V2_Pi .* repmat(n23, n_points, 1), 2);
+dot_r_V3_Pi_n31 = sum(r_V3_Pi .* repmat(n31, n_points, 1), 2);
+
+L1 = log((norm_r_V2_Pi+dot_r_V2_Pi_n23)./(norm_r_V1_Pi+dot_r_V1_Pi_n12));
+L2 = log((norm_r_V3_Pi+dot_r_V3_Pi_n31)./(norm_r_V2_Pi+dot_r_V2_Pi_n23));
+L3 = log((norm_r_V1_Pi+dot_r_V1_Pi_n12)./(norm_r_V3_Pi+dot_r_V3_Pi_n31));
+
+G = 1/(4*pi)*(o1.*L1+o2.*L2+o3.*L3-v.*thita);
+
+%% quadrature
+Xq0 = squeeze(Xq2(:,t,:));
+W0 = W2(:,t);
+u_coor_phy = repmat(P_i,[gq_number,1]);
+nv0 = repmat(nv(t,:),[gq_number,1]);
+r_square = @(x) sum((x-u_coor_phy).^2,2);
+
+G_quadrature = 1./(4*pi)*sum(W0.*r_square(Xq0).^0.5);
+H_quadrature = 1/(-4*pi)*sum(W0.*r_square(Xq0).^(-3/2).*sum((Xq0-u_coor_phy).*nv0,2));

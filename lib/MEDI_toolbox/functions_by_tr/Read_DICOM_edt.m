@@ -1,0 +1,290 @@
+function [iField,voxel_size,matrix_size,CF,delta_TE,TE,B0_dir,Dicom_dir]=Read_DICOM(DicomFolder)
+    
+%DicomFolder='F:\FatWaterSeparation\zhai\fwtoolbox\fwToolBox\fwtoolbox_v1_code\gui';    
+    folder_list = get_all_paths(DicomFolder,cell(0));    
+    tempfilelist = struct([]);
+    filelist = cell(0);
+    Dicom_dir = [];
+    for i=1:length(folder_list)
+        tempfilelist = dir(folder_list{i});        
+        for j =1:length(tempfilelist)           
+            if tempfilelist(j).isdir == 0
+                if isempty(Dicom_dir)
+                    try
+                        Dicom_dir =  tempfilelist(j).folder;
+                    catch
+                        Dicom_dir = folder_list{i};
+                    end
+                end
+                pathname =[folder_list{i},'\',tempfilelist(j).name];
+                filelist = [filelist;pathname];
+            end
+        end
+    end    
+    
+    fnTemp=filelist{1};  
+
+    info = dicominfo(fnTemp);
+    manufacturer = info.Manufacturer;
+    
+    
+    
+    
+    switch manufacturer
+    
+        case 'SIEMENS'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%NEED MODIFICATION%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            matrix_size(1) = single(info.Width);
+            matrix_size(2) = single(info.Height);
+            voxel_size(1,1) = single(info.PixelSpacing(1));
+            voxel_size(2,1) = single(info.PixelSpacing(2));
+            voxel_size(3,1) = single(info.SliceThickness);
+            CF = info.ImagingFrequency *1e6;
+
+            minSlice = 1e10;
+            maxSlice = -1e10;
+            NumEcho = 0;
+            NumChannel = 0;
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                if info.SliceLocation<minSlice
+                    minSlice = info.SliceLocation;
+                    minLoc = info.ImagePositionPatient;
+                end
+                if info.SliceLocation>maxSlice
+                    maxSlice = info.SliceLocation;
+                    maxLoc = info.ImagePositionPatient;
+                end
+                if info.EchoNumber>NumEcho
+                    NumEcho = info.EchoNumber;
+                end
+                found = 0;
+                chaname = char(info.Private_0051_100f');
+                for channel = 1:NumChannel
+                    if strcmp(chaname, channelname{channel})
+                        found = 1;
+                        break;
+                    end
+                end
+                if found==0
+                    NumChannel = NumChannel + 1;
+                    channelname{NumChannel} = chaname;
+                end
+            end
+            matrix_size(3) = round(norm(maxLoc - minLoc)/voxel_size(3)) + 1;    
+            Affine2D = reshape(info.ImageOrientationPatient,[3 2]);
+            Affine3D = [Affine2D (maxLoc-minLoc)/( (matrix_size(3)-1)*voxel_size(3))];
+            B0_dir = Affine3D\[0 0 1]';
+
+            iMag = single(zeros([matrix_size NumEcho NumChannel]));
+            iPhase = single(zeros([matrix_size NumEcho NumChannel]));
+            TE = single(zeros([NumEcho 1]));
+
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                slice = int32(round(norm(info.ImagePositionPatient-minLoc)/voxel_size(3)) +1);
+                if TE(info.EchoNumber)==0
+                    TE(info.EchoNumber)=info.EchoTime*1e-3;
+                end
+
+                for c = 1:NumChannel
+                    if strcmp(char(info.Private_0051_100f'), channelname{c})
+                        channel = c;
+                    end
+                end
+                %channel = 1;
+
+                if (info.ImageType(18)=='P')|(info.ImageType(18)=='p')
+                    iPhase(:,:,slice,info.EchoNumber, channel)  = (single(dicomread(filelist{i})')*info.RescaleSlope+info.RescaleIntercept)/single(info.LargestImagePixelValue)*pi;%phase
+                elseif (info.ImageType(18)=='M')|(info.ImageType(18)=='m')
+                    iMag(:,:,slice,info.EchoNumber, channel)  = single(dicomread(filelist{i})');%magnitude
+                end
+            end
+
+
+            iField = iMag.*exp(-1i*iPhase);
+            clear iMag iPhase;
+            if NumChannel>1
+                % combine multiple coils together, assuming the coil is the fifth dimension
+                iField = sum(iField.*conj( repmat(iField(:,:,:,1,:),[1 1 1 NumEcho 1])),5);
+                iField = sqrt(abs(iField)).*exp(1i*angle(iField));
+            end
+
+
+            if length(TE)==1
+                delta_TE = TE;
+            else
+                delta_TE = TE(2) - TE(1);
+            end
+    
+            disp('SIEMENS READ');
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%GE
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%PART%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        case 'GE MEDICAL SYSTEMS'
+    
+            matrix_size(1) = single(info.Width);
+            matrix_size(2) = single(info.Height);
+            matrix_size(3) = single(info.Private_0021_104f);    
+            NumEcho = single(info.Private_0019_107e);
+            voxel_size(1,1) = single(info.PixelSpacing(1));
+            voxel_size(2,1) = single(info.PixelSpacing(2));
+            voxel_size(3,1) = single(info.SpacingBetweenSlices);
+            CF = info.ImagingFrequency *1e6;
+%             iReal = single(zeros([matrix_size NumEcho]));
+%             iImag = single(zeros([matrix_size NumEcho]));
+            TE = single(zeros([NumEcho 1]));
+
+            minSlice = 1e10;
+            maxSlice = -1e10;
+
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                if info.SliceLocation<minSlice
+                    minSlice = info.SliceLocation;
+                    minLoc = info.ImagePositionPatient;
+                end
+                if info.SliceLocation>maxSlice
+                    maxSlice = info.SliceLocation;
+                    maxLoc = info.ImagePositionPatient;
+                end
+            end
+
+            Affine2D = reshape(info.ImageOrientationPatient,[3 2]);
+            Affine3D = [Affine2D (maxLoc-minLoc)/( (matrix_size(3)-1)*voxel_size(3))];
+            B0_dir = Affine3D\[0 0 1]';
+            
+            iMag = single(zeros([matrix_size NumEcho ]));
+            iPhase = single(zeros([matrix_size NumEcho]));
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                %slice = int32(round((info.SliceLocation-minSlice)/voxel_size(3)) +1);
+                 slice = int32(round(sqrt(sum((info.ImagePositionPatient-minLoc).^2))/voxel_size(3)) +1);
+                if TE(info.EchoNumber)==0
+                    TE(info.EchoNumber)=info.EchoTime*1e-3;
+                end
+                image = dicomread(filelist{i})';
+                LargestImagePixelValue = max(max(image));
+                SmallestImagePixelValue = min(min(image));
+                if SmallestImagePixelValue < 0
+                    iPhase(:,:,slice,info.EchoNumber)  =  (single(image)*2-single(LargestImagePixelValue+...
+                    SmallestImagePixelValue+1))/single(LargestImagePixelValue- SmallestImagePixelValue)*pi;    %Phase
+                else
+                    iMag(:,:,slice,info.EchoNumber)  = single(image);%magnitude
+                end
+%                 if strcmp(info. SeriesDescription , 'OAx SWAN Asset 2mm')
+%                     iMag(:,:,slice,info.EchoNumber)  = single(dicomread(filelist{i})');%magnitude
+%                 elseif strcmp(info. SeriesDescription , 'FILT_PHA: OAx SWAN Asset 2mm')                    
+%                     iPhase(:,:,slice,info.EchoNumber)  =  (single(dicomread(filelist{i})')*2-single(info.LargestImagePixelValue+...
+%                     info.SmallestImagePixelValue+1))/single(info.LargestImagePixelValue- info.SmallestImagePixelValue)*pi;    %Phase
+%                 end
+            end
+
+
+            iField = iMag.*exp(1i*iPhase);
+            clear iMag iPhase;
+%             for echo = 1:NumEcho
+%                  iField(:,:,:,echo) = ifft( fftshift( fft(iField(:,:,:,echo),[],3),3),[],3);
+%             end
+            if length(TE)==1
+                delta_TE = TE;
+            else
+                delta_TE = TE(2) - TE(1);
+            end
+    
+    
+            disp('GE READ');
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%PHILIPS NEED
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%MOD
+        case 'Philips Medical Systems'
+    
+            matrix_size(1) = single(info.Width);
+            matrix_size(2) = single(info.Height);
+            voxel_size(1,1) = single(info.PixelSpacing(1));
+            voxel_size(2,1) = single(info.PixelSpacing(2));
+            voxel_size(3,1) = single(info.SliceThickness);
+            CF = info.ImagingFrequency *1e6;
+
+            minSlice = 1e10;
+            maxSlice = -1e10;
+            NumEcho = 0;
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                if info.SliceLocation<minSlice
+                    minSlice = info.SliceLocation;
+                    minLoc = info.ImagePositionPatient;
+                end
+                if info.SliceLocation>maxSlice
+                    maxSlice = info.SliceLocation;
+                    maxLoc = info.ImagePositionPatient;
+                end
+                if info.EchoNumber>NumEcho
+                    NumEcho = info.EchoNumber;
+                end
+            end
+            matrix_size(3) = round(norm(maxLoc - minLoc)/voxel_size(3)) + 1;    
+            Affine2D = reshape(info.ImageOrientationPatient,[3 2]);
+            Affine3D = [Affine2D (maxLoc-minLoc)/( (matrix_size(3)-1)*voxel_size(3))];
+            B0_dir = Affine3D\[0 0 1]';
+
+            iMag = single(zeros([matrix_size NumEcho]));
+            iPhase = single(zeros([matrix_size NumEcho]));
+            TE = single(zeros([NumEcho 1]));
+
+            for i = 1:length(filelist)
+                info = dicominfo(filelist{i});
+                slice = int32(round(norm(info.ImagePositionPatient-minLoc)/voxel_size(3)) +1);
+                if TE(info.EchoNumber)==0
+                    TE(info.EchoNumber)=info.EchoTime*1e-3;
+                end
+                if (info.ImageType(18)=='P')|(info.ImageType(18)=='p')
+                    iPhase(:,:,slice,info.EchoNumber)  = 1e-3*(single(dicomread(filelist{i})')*info.RealWorldValueMappingSequence.Item_1.RealWorldValueSlope+info.RealWorldValueMappingSequence.Item_1.RealWorldValueIntercept);%phase
+                elseif (info.ImageType(18)=='M')|(info.ImageType(18)=='m')
+                    iMag(:,:,slice,info.EchoNumber)  = single(dicomread(filelist{i})');%magnitude
+                end
+            end
+
+
+            iField = iMag.*exp(-1i*iPhase);
+            clear iMag iPhase;
+            if length(TE)==1
+                delta_TE = TE;
+            else
+                delta_TE = TE(2) - TE(1);
+            end
+
+            disp('PHILIPS READ');
+        otherwise
+            
+            disp('LOADING FAILED');
+
+       end
+            
+            
+            
+end
+
+function folder_list =  get_all_paths(path,folder_list)
+    filelist = dir(path);
+    i=1;
+    tempFolder = cell(0);
+    while(i<=length(filelist))
+        if(filelist(i).isdir == 1)
+            tempFolder = [tempFolder,filelist(i)];
+        end
+        i =i +1;
+    end
+    tempFolder = tempFolder(3:numel(tempFolder));
+    numFolderPath = numel(tempFolder);
+    tempFolderPath = cell(numFolderPath,1);
+    for i = 1:numFolderPath
+        tempFolderPath{i} = [path '\' tempFolder{i}.name];
+    end
+    folder_list = [folder_list;path];
+    for i = 1 : numFolderPath
+        folder_list = get_all_paths(tempFolderPath{i}, folder_list);
+    end
+end
