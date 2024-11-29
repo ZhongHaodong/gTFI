@@ -45,3 +45,10 @@ params_gTFI.Mask_CSF = logical(extract_CSF(R2s, mask, voxel_size));
 
 gTFI = gTFI_FMM(params_gTFI,mesh);
 
+export_folder = [filename{1},'\results_gTFI1000'];
+mkdir(export_folder);
+RDF_nii = make_nii(fliplr(gTFI),voxel_size,[],16);
+save_nii(RDF_nii,[export_folder,'\gTFI.nii']);
+
+RDF_nii = make_nii(fliplr(R2s.*mask),voxel_size,[],16);
+save_nii(RDF_nii,[export_folder,'\R2s.nii']);

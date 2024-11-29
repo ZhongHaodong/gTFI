@@ -31,7 +31,7 @@ p =  getParam_Master(params_gTFI,'multipoleOrder', 5, master_mode);
 R2sThresh = getParam_Master(params_gTFI,'R2sThresh', 40, master_mode);
 PB =  getParam_Master(params_gTFI,'PB', 30, master_mode);
 
-cg_max_iter = getParam_Master(params_gTFI, 'cg_max_iter', 600, master_mode);
+cg_max_iter = getParam_Master(params_gTFI, 'cg_max_iter', 10, master_mode);
 cgTFI_LogInterval = getParam_Master(params_gTFI, 'cgTFI_LogInterval', ceil(cg_max_iter/4), master_mode);
 cg_tol = getParam_Master(params_gTFI, 'cg_tol', 0.05, master_mode);
 cg_tol_init = getParam_Master(params_gTFI, 'cg_tol_init', 0.01, master_mode);
@@ -237,7 +237,7 @@ end
 
 %%
 x_map = P.*reshape(x(1:x_length),matrix_size)/(2*pi*delta_TE*CF)*1e6;
-mask = logical(mask);
+mask = logic
 if flag_CSF
     x_map(mask) = x_map(mask) - mean(x_map(Mask_CSF));
 end
