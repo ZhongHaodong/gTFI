@@ -1,4 +1,4 @@
-function D2N = computeD2N(mesh, gq_number)
+function D2N = computeD2N(mesh,params_FMM, gq_number)
 %   D2N = computeD2N(mesh, gq_number)
 %   output
 %   D2N - the matrix used to 
@@ -60,6 +60,30 @@ for i = 1:nf
                                 mesh.vertices(mesh.faces(i,2),:), ...
                                 mesh.vertices(mesh.faces(i,3),:));
     QI(i,i) = 1/2;
+end
+
+%% Analytical computation of near-singular integrals
+triangle_indices_per_triangle = neartriangles_per_triangle(params_FMM, mesh, 8);
+for t = 1:nf
+    % Get the indices of P_i associated with the t-th triangle
+    idx_in_triangle = triangle_indices_per_triangle{t};
+
+    % Skip if there are no points
+    if isempty(idx_in_triangle)
+        continue;
+    end   
+    % Get the vertex indices of the triangle
+    verts_idx = mesh.faces(t, :);
+    % Get the coordinates of the vertices
+    V1 = mesh.vertices(verts_idx(1), :);
+    V2 = mesh.vertices(verts_idx(2), :);
+    V3 = mesh.vertices(verts_idx(3), :);
+    % Normal vector of the current triangle
+    nv_t = nv(t, :);
+    %near-singular integrals
+    [T_a, Q_a] = compute_triangle_centroid_interactions(idx_in_triangle, params_FMM, V1, V2, V3, nv_t);
+    T(idx_in_triangle,t) = T_a;
+    QI(idx_in_triangle,t) = Q_a;
 end
 
 % Solve the system to compute D2N

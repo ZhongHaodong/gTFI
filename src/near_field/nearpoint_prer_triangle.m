@@ -1,4 +1,4 @@
-function point_indices_per_triangle = nearpoint_prer_triangle(params_FMM, mesh,voxel_size)
+function point_indices_per_triangle = nearpoint_prer_triangle(params_FMM, mesh,voxel_size,distance)
 % nearpoint_prer_triangle: Assigns points within a specified distance to each triangle.
 %
 % This function computes the indices of points near each triangle in a 3D
@@ -34,7 +34,6 @@ matrix_size = size(Mask);
 X = X*voxel_size(1);
 Y = Y*voxel_size(2);
 Z = Z*voxel_size(3);
-distance = 8;
 % Number of faces (triangles)
 n_faces = size(mesh.faces, 1);
 point_indices_per_triangle = cell(n_faces, 1);

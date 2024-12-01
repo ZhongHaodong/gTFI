@@ -149,7 +149,7 @@ sparse_idx = sparse(double(row_indices(1:current_index - 1)), double(col_indices
 
 %% Analytical computation of near-singular integrals
 fprintf('Analytical intergral progress: %.0f%% completed, elapsed time: %d s\n', 0, 0);
-point_indices_per_triangle = nearpoint_prer_triangle(params_FMM,mesh,voxel_size);
+point_indices_per_triangle = nearpoint_prer_triangle(params_FMM,mesh,voxel_size,8);
 tic
 for t = 1:nf
     % Check and display progress

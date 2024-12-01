@@ -6,7 +6,7 @@
 filename{1} = 'E:\MRI_DATA\BEM_TFI\health_final\DATA_TOTAL\1_BEM_ZHD20240715M\QSM_tra_mono_ 1mm_6echo';
 [iField0,voxel_size,matrix_size,CF,delta_TE,TE,B0_dir,BW,DICOM_dir]=Read_DICOM_qsmliver([filename{1},'\data']);
 iField = iField0;
-iMag = sqrt(sum(abs(iField).^2,4));
+iMag = sqrt(sum(abs(iField(:,:,:,4:end)).^2,4));
 matrix_size = size(iMag);
 Mask = BET(iMag, matrix_size, voxel_size);
 [iFreq_raw, N_std] = Fit_ppm_complex_TE(iField, TE);

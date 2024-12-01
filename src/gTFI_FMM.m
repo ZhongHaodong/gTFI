@@ -52,13 +52,12 @@ params_FMM.OcTree = OcTree_matrix(mask,centroid,voxel_size,4);
 [params_FMM.Neighbor_list,params_FMM.Interaction_List] = neighbor_searcher(params_FMM);
 params_FMM = Tree_parameters(params_FMM, mesh,p,voxel_size,7);
 
+% Compute D2N
+params_FMM.D2N = computeD2N(mesh, params_FMM, 7);
+params_FMM.D2NH = (params_FMM.D2N)';
 % Compute near-field integrals
 near_field = [];
 [near_field.T, near_field.Q] = cal_near_field(mesh,params_FMM,7,voxel_size);
-
-% Compute D2N
-params_FMM.D2N = computeD2N(mesh, 64);
-params_FMM.D2NH = (params_FMM.D2N)';
 
 %% Preconditioner
 MaskP = SMV(mask,matrix_size, voxel_size, 1)>0.001;
