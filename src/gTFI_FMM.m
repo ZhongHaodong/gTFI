@@ -41,16 +41,16 @@ merit = getParam_Master(params_gTFI, 'merit', true, master_mode);
 %% matrix size 的预处理
 matrix_size = size(f);
 old_matrix_size=matrix_size;
-flag_matrix_size=0;
+flag_padMatrix=1;
 flag_size1=matrix_size(1)/16;
 flag_size2=matrix_size(2)/16;
 flag_size3=matrix_size(3)/16;
 if (mod(matrix_size(1),16)==0)&(mod(matrix_size(2),16)==0)&(mod(matrix_size(3),16)==0)
     if  ((mod(flag_size1,2)==0)||(mod(flag_size2,2)==0)||(mod(flag_size3,2)==0))
-        flag_matrix_size=1;
+        flag_padMatrix=0;
     end
 end
-if ~flag_matrix_size
+if flag_padMatrix
     new_matrix_size=matrix_size;
     if mod(matrix_size(1),16)~=0
         new_matrix_size(1)=matrix_size(1)+(16-mod(matrix_size(1),16));
@@ -65,11 +65,16 @@ if ~flag_matrix_size
         new_matrix_size(1)=new_matrix_size(1)+16;
     end
     matrix_size=new_matrix_size;
-    size_change=ceil((matrix_size-old_matrix_size)/2);
+    size_change=floor((matrix_size-old_matrix_size)/2);
     mask = padarray(mask,size_change);
     iMag = padarray(iMag,size_change);
     f = padarray(f,size_change);
     R2s = padarray(R2s,size_change);
+    padsize=mod(matrix_size-old_matrix_size,2);
+    mask = padarray(mask,padsize,0,'post');
+    iMag = padarray(iMag,padsize,0,'post');
+    f = padarray(f,padsize,0,'post');
+    R2s = padarray(R2s,padsize,0,'post');
 end
 %% FMM预计算
 params_FMM = [];
@@ -271,13 +276,13 @@ mask = logical(mask);
 if flag_CSF
     x_map(mask) = x_map(mask) - mean(x_map(Mask_CSF));
 end
-if  ~flag_matrix_size
-    x_map=x_map(1+size_change(1):matrix_size(1)-size_change(1), ...
-        1+size_change(2):matrix_size(2)-size_change(2), ...
-        1+size_change(3):matrix_size(3)-size_change(3));
-    mask=mask(1+size_change(1):matrix_size(1)-size_change(1), ...
-        1+size_change(2):matrix_size(2)-size_change(2), ...
-        1+size_change(3):matrix_size(3)-size_change(3));
+if  flag_padMatrix
+    x_map=x_map(1+size_change(1):matrix_size(1)-size_change(1)-padsize(1), ...
+        1+size_change(2):matrix_size(2)-size_change(2)-padsize(2), ...
+        1+size_change(3):matrix_size(3)-size_change(3)-padsize(3));
+    mask=mask(1+size_change(1):matrix_size(1)-size_change(1)-padsize(1), ...
+        1+size_change(2):matrix_size(2)-size_change(2)-padsize(2), ...
+        1+size_change(3):matrix_size(3)-size_change(3)-padsize(3));
 end
 gTFI = x_map.*mask;
 
