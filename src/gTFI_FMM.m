@@ -65,16 +65,16 @@ if flag_padMatrix
         new_matrix_size(1)=new_matrix_size(1)+16;
     end
     matrix_size=new_matrix_size;
-    size_change=floor((matrix_size-old_matrix_size)/2);
-    mask = padarray(mask,size_change);
-    iMag = padarray(iMag,size_change);
-    f = padarray(f,size_change);
-    R2s = padarray(R2s,size_change);
-    padsize=mod(matrix_size-old_matrix_size,2);
-    mask = padarray(mask,padsize,0,'post');
-    iMag = padarray(iMag,padsize,0,'post');
-    f = padarray(f,padsize,0,'post');
-    R2s = padarray(R2s,padsize,0,'post');
+    padSize_even=floor((matrix_size-old_matrix_size)/2);
+    mask = padarray(mask,padSize_even);
+    iMag = padarray(iMag,padSize_even);
+    f = padarray(f,padSize_even);
+    R2s = padarray(R2s,padSize_even);
+    padSize_odd=mod(matrix_size-old_matrix_size,2);
+    mask = padarray(mask,padSize_odd,0,'post');
+    iMag = padarray(iMag,padSize_odd,0,'post');
+    f = padarray(f,padSize_odd,0,'post');
+    R2s = padarray(R2s,padSize_odd,0,'post');
 end
 %% FMM预计算
 params_FMM = [];
@@ -277,12 +277,12 @@ if flag_CSF
     x_map(mask) = x_map(mask) - mean(x_map(Mask_CSF));
 end
 if  flag_padMatrix
-    x_map=x_map(1+size_change(1):matrix_size(1)-size_change(1)-padsize(1), ...
-        1+size_change(2):matrix_size(2)-size_change(2)-padsize(2), ...
-        1+size_change(3):matrix_size(3)-size_change(3)-padsize(3));
-    mask=mask(1+size_change(1):matrix_size(1)-size_change(1)-padsize(1), ...
-        1+size_change(2):matrix_size(2)-size_change(2)-padsize(2), ...
-        1+size_change(3):matrix_size(3)-size_change(3)-padsize(3));
+    x_map=x_map(1+padSize_even(1):matrix_size(1)-padSize_even(1)-padSize_odd(1), ...
+        1+padSize_even(2):matrix_size(2)-padSize_even(2)-padSize_odd(2), ...
+        1+padSize_even(3):matrix_size(3)-padSize_even(3)-padSize_odd(3));
+    mask=mask(1+padSize_even(1):matrix_size(1)-padSize_even(1)-padSize_odd(1), ...
+        1+padSize_even(2):matrix_size(2)-padSize_even(2)-padSize_odd(2), ...
+        1+padSize_even(3):matrix_size(3)-padSize_even(3)-padSize_odd(3));
 end
 gTFI = x_map.*mask;
 
