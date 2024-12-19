@@ -70,7 +70,11 @@ if flag_padMatrix
     iMag = padarray(iMag,padSize_even);
     f = padarray(f,padSize_even);
     R2s = padarray(R2s,padSize_even);
+    N_std = padarray(N_std,padSize_even);
+    Mask_CSF = padarray(Mask_CSF,padSize_even);
     padSize_odd=mod(matrix_size-old_matrix_size,2);
+    Mask_CSF = padarray(Mask_CSF,padSize_odd,0,'post');
+    N_std = padarray(N_std,padSize_odd,0,'post');
     mask = padarray(mask,padSize_odd,0,'post');
     iMag = padarray(iMag,padSize_odd,0,'post');
     f = padarray(f,padSize_odd,0,'post');
