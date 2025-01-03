@@ -3,7 +3,7 @@
 
 %% GRE Data Preprocessing Example
 % The basic variable names related to QSM follow the conventions of the MEDI_toolbox.
-filename{1} = 'E:\MRI_DATA\BEM_TFI\health_final\DATA_TOTAL\1_BEM_ZHD20240715M\QSM_tra_mono_ 1mm_6echo';
+filename{1} = 'E:\MRI_DATA\QSM_EDDY\HAODONG_20250102_HAODONG_20250102\haodong_20250102';
 [iField0,voxel_size,matrix_size,CF,delta_TE,TE,B0_dir,BW,DICOM_dir]=Read_DICOM_qsmliver([filename{1},'\data']);
 iField = iField0;
 iMag = sqrt(sum(abs(iField(:,:,:,4:end)).^2,4));
