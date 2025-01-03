@@ -74,6 +74,8 @@ if flag_padMatrix
     Mask_CSF = padarray(Mask_CSF,padSize_even);
 
     padSize_odd=mod(matrix_size-old_matrix_size,2);
+    Mask_CSF = padarray(Mask_CSF,padSize_odd,0,'post');
+    N_std = padarray(N_std,padSize_odd,0,'post');
     mask = padarray(mask,padSize_odd,0,'post');
     N_std = padarray(N_std,padSize_odd,0,'post');
     Mask_CSF = padarray(Mask_CSF,padSize_odd,0,'post');
