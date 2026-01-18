@@ -3,12 +3,11 @@
 
 %% GRE Data Preprocessing Example
 % The basic variable names related to QSM follow the conventions of the MEDI_toolbox.
-filename{1} = 'E:\MRI_DATA\QSM_EDDY\HAODONG_20250102_HAODONG_20250102\haodong_20250102';
-[iField0,voxel_size,matrix_size,CF,delta_TE,TE,B0_dir,BW,DICOM_dir]=Read_DICOM_qsmliver([filename{1},'\data']);
-iField = iField0;
-iMag = sqrt(sum(abs(iField(:,:,:,4:end)).^2,4));
+filepath{1} = '';
+[iField,voxel_size,matrix_size,CF,delta_TE,TE,B0_dir,BW,DICOM_dir]=Read_DICOM(filepath{1});
+iMag = sqrt(sum(abs(iField).^2,4));
 matrix_size = size(iMag);
-Mask = BET(iMag, matrix_size, voxel_size);
+Mask_BET = BET(iMag, matrix_size, voxel_size);
 [iFreq_raw, N_std] = Fit_ppm_complex_TE(iField, TE);
 iFreq = unwrapPhase(iMag, iFreq_raw, matrix_size);
 R2s = arlo(TE, abs(iField));
@@ -20,18 +19,13 @@ params_gTFI = [];
 params_gTFI.delta_TE = delta_TE;
 params_gTFI.CF = CF;
 params_gTFI.voxel_size = voxel_size;
-params_gTFI.mask = mask;
+params_gTFI.mask = mask_gTFI;
 params_gTFI.iMag = iMag;
 params_gTFI.f = iFreq;
 params_gTFI.N_std = N_std;
 params_gTFI.B0_dir = B0_dir;
-params_gTFI.lambda = 1000;
+params_gTFI.lambda = 1250;
 params_gTFI.R2s = R2s;
-params_gTFI.Mask_CSF = logical(extract_CSF(R2s, mask, voxel_size));
-
-gTFI = gTFI_FMM(params_gTFI,mesh);
-
-export_folder = [filename{1},'\results_gTFI'];
-mkdir(export_folder);
-nii = make_nii(fliplr(gTFI),voxel_size,[],16);
-save_nii(nii,[export_folder,'\gTFI.nii']);
+params_gTFI.Mask_CSF = Mask_CSF; 
+%params_gTFI.flag_CSF=false;
+[gTFI,RDF_gTFI] = gTFI_FMM(params_gTFI,mesh);

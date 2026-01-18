@@ -1,7 +1,8 @@
-function gTFI = gTFI_FMM(params_gTFI,mesh)
+function [gTFI,RDF] = gTFI_FMM(params_gTFI,mesh)
 %   Created by Haodong Zhong on 2024.11.26
-%   Last modified by Haodong Zhong on 2024.11.28
+%   Last modified by Haodong Zhong on 2026.01.18
 %% 必要参数
+OTdepth = 5;
 delta_TE = params_gTFI.delta_TE;
 CF = params_gTFI.CF;
 voxel_size = params_gTFI.voxel_size;
@@ -14,55 +15,58 @@ lambda = params_gTFI.lambda;
 %% 可选参数
 R2s = getOrDefault(params_gTFI, 'R2s', []);
 flag_CSF = getOrDefault(params_gTFI,'flag_CSF', true);
+Mask_CSF = params_gTFI.Mask_CSF;
 if flag_CSF
-    Mask_CSF = params_gTFI.Mask_CSF;
     fprintf('CSF regularization used\n');
-    lam_CSF = getOrDefault(params_gTFI,'lam_CSF', 10);
+    lam_CSF = getOrDefault(params_gTFI,'lam_CSF', 1);
 end
-max_iter = getOrDefault(params_gTFI, 'max_iter', 6);
-tol_norm_ratio = getOrDefault(params_gTFI, 'tol_norm_ratio', 0.05);
+max_iter = getOrDefault(params_gTFI, 'max_iter', 7);
+if max_iter<5
+    max_iter=5;
+end
+tol_norm_ratio = getOrDefault(params_gTFI, 'tol_norm_ratio', 0.03);
 %% Default parameters that are generally not modified
 master_mode = getOrDefault(params_gTFI, 'master_mode', false);
 if master_mode
     fprintf('Master mode enabled\n');
 end
-p =  getParam_Master(params_gTFI,'multipoleOrder', 5, master_mode);
+%p =  getParam_Master(params_gTFI,'multipoleOrder', 5, master_mode);
 
-R2sThresh = getParam_Master(params_gTFI,'R2sThresh', 40, master_mode);
+R2sThresh = getParam_Master(params_gTFI,'R2sThresh', 30, master_mode);
 PB =  getParam_Master(params_gTFI,'PB', 30, master_mode);
 
-cg_max_iter = getParam_Master(params_gTFI, 'cg_max_iter', 600, master_mode);
+cg_max_iter = getParam_Master(params_gTFI, 'cg_max_iter', 100, master_mode);
 cgTFI_LogInterval = getParam_Master(params_gTFI, 'cgTFI_LogInterval', ceil(cg_max_iter/4), master_mode);
 cg_tol = getParam_Master(params_gTFI, 'cg_tol', 0.05, master_mode);
 cg_tol_init = getParam_Master(params_gTFI, 'cg_tol_init', 0.01, master_mode);
-cg_max_init = getParam_Master(params_gTFI, 'cg_max_init', 30, master_mode);
 fullTFIMode = getParam_Master(params_gTFI, 'fullTFIMode', false, master_mode);
 merit = getParam_Master(params_gTFI, 'merit', true, master_mode);
+alpha = getParam_Master(params_gTFI, 'alpha', 0.05, master_mode);
 %% matrix size 的预处理
 matrix_size = size(f);
 old_matrix_size=matrix_size;
 flag_padMatrix=1;
-flag_size1=matrix_size(1)/16;
-flag_size2=matrix_size(2)/16;
-flag_size3=matrix_size(3)/16;
-if (mod(matrix_size(1),16)==0)&(mod(matrix_size(2),16)==0)&(mod(matrix_size(3),16)==0)
+flag_size1=matrix_size(1)/2^OTdepth;
+flag_size2=matrix_size(2)/2^OTdepth;
+flag_size3=matrix_size(3)/2^OTdepth;
+if (mod(matrix_size(1),2^OTdepth)==0)&(mod(matrix_size(2),2^OTdepth)==0)&(mod(matrix_size(3),2^OTdepth)==0)
     if  ((mod(flag_size1,2)==0)||(mod(flag_size2,2)==0)||(mod(flag_size3,2)==0))
         flag_padMatrix=0;
     end
 end
 if flag_padMatrix
     new_matrix_size=matrix_size;
-    if mod(matrix_size(1),16)~=0
-        new_matrix_size(1)=matrix_size(1)+(16-mod(matrix_size(1),16));
+    if mod(matrix_size(1),2^OTdepth)~=0
+        new_matrix_size(1)=matrix_size(1)+(2^OTdepth-mod(matrix_size(1),2^OTdepth));
     end
-    if mod(matrix_size(2),16)~=0
-        new_matrix_size(2)=matrix_size(2)+(16-mod(matrix_size(2),16));
+    if mod(matrix_size(2),2^OTdepth)~=0
+        new_matrix_size(2)=matrix_size(2)+(2^OTdepth-mod(matrix_size(2),2^OTdepth));
     end
-    if mod(matrix_size(3),16)~=0
-        new_matrix_size(3)=matrix_size(3)+(16-mod(matrix_size(3),16));
+    if mod(matrix_size(3),2^OTdepth)~=0
+        new_matrix_size(3)=matrix_size(3)+(2^OTdepth-mod(matrix_size(3),2^OTdepth));
     end
-    if  ((mod(flag_size1,2)==1)&(mod(flag_size2,2)==1)&(mod(flag_size3,2)==1))
-        new_matrix_size(1)=new_matrix_size(1)+16;
+    if  ((mod(flag_size1,2)==1)&&(mod(flag_size2,2)==1)&&(mod(flag_size3,2)==1))
+        new_matrix_size(1)=new_matrix_size(1)+2^OTdepth;
     end
     matrix_size=new_matrix_size;
     padSize_even=floor((matrix_size-old_matrix_size)/2);
@@ -77,8 +81,6 @@ if flag_padMatrix
     Mask_CSF = padarray(Mask_CSF,padSize_odd,0,'post');
     N_std = padarray(N_std,padSize_odd,0,'post');
     mask = padarray(mask,padSize_odd,0,'post');
-    N_std = padarray(N_std,padSize_odd,0,'post');
-    Mask_CSF = padarray(Mask_CSF,padSize_odd,0,'post');
     iMag = padarray(iMag,padSize_odd,0,'post');
     f = padarray(f,padSize_odd,0,'post');
     R2s = padarray(R2s,padSize_odd,0,'post');
@@ -90,10 +92,10 @@ nv = faceNormal(triangulation(mesh.faces, double(mesh.vertices)));
 centroid = (mesh.vertices(mesh.faces(:,1),:) + ...
     mesh.vertices(mesh.faces(:,2),:) + ...
     mesh.vertices(mesh.faces(:,3),:)) ./ 3; % Triangle centroids
-params_FMM.OcTree = OcTree_matrix(mask,centroid,voxel_size,4);
+params_FMM.OcTree = OcTree_matrix(mask,centroid,voxel_size,OTdepth);
 %计算仅依赖OCtree的参数
 [params_FMM.Neighbor_list,params_FMM.Interaction_List] = neighbor_searcher(params_FMM);
-params_FMM = Tree_parameters(params_FMM, mesh,p,voxel_size,7);
+params_FMM = Tree_parameters(params_FMM, mesh,7,voxel_size,7);
 
 % Compute D2N
 params_FMM.D2N = computeD2N(mesh, params_FMM, 7);
@@ -103,8 +105,7 @@ near_field = [];
 [near_field.T, near_field.Q] = cal_near_field(mesh,params_FMM,7,voxel_size);
 
 %% Preconditioner
-MaskP = SMV(mask,matrix_size, voxel_size, 1)>0.001;
-P = ones(matrix_size);
+P= ones(matrix_size);
 if isfield(params_gTFI, 'R2s') && ~isempty(params_gTFI.R2s)
     P(R2s > R2sThresh) = PB;
 else
@@ -112,7 +113,8 @@ else
 end
 
 P(~mask) = PB;
-P(~MaskP) = 1;
+maskP = SMV(mask,matrix_size, voxel_size, 2)>0.001;
+P(~maskP) = 1;
 %%
 c2g = @(x) gpuArray(x);
 g2c = @(x) gather(x);
@@ -127,6 +129,7 @@ tempn = double(N_std);
 D=dipole_kernel(matrix_size, voxel_size, B0_dir);
 m = dataterm_mask(data_weighting_mode, tempn, mask);
 wG = gradient_mask(gradient_weighting_mode, iMag, mask, grad, voxel_size);
+wG = wG.*mask;
 
 res_norm_ratio_x = Inf;
 cost_data_history = zeros(1,max_iter);
@@ -159,22 +162,37 @@ DconvL_H = @(dx) [Map2Col(real(P.*ifftn(D.*fftn(dx))));...
 Dconv = @(dx) real(ifftn(D.*fftn(dx)));
 
 L = @(x) L_FMM(x,p,params_FMM,near_field);
-
 L_H = @(x) LH_FMM(x,p,params_FMM,near_field);
 
 A_init= @(x) L_H(mask.*mask.*L(x));
 
 %计算fs的初始值
-x(x_length+1:end) = real(pcg(A_init,L_H(mask.*f),cg_tol_init,cg_max_init,[],[]));
+x(x_length+1:end) = real(cgsolve(A_init,L_H(mask.*f),cg_tol_init,6,6));
 fprintf('initial fb calculation completed.\n');
 %% 高斯牛顿法
 iter=0;
+
+f  = f*alpha;
+x = x*alpha;
 b0 = m.*exp(1i*f);
+
 fprintf('Gauss-Newton iteration starts.\n');
-while (res_norm_ratio_x>tol_norm_ratio)&&(iter<max_iter)
-    tic
+params_FMM = Tree_parameters(params_FMM, mesh,3,voxel_size,7);
+while ( (iter < 5) || (res_norm_ratio > tol_norm_ratio) ) && (iter < max_iter) 
+    tic;
     iter=iter+1;
-    if mod(iter, 2) == 1 || fullTFIMode
+    if iter == 2
+        x(1:x_length)=0;
+    end
+    if iter == 3
+        f  = f/alpha;
+        b0 = m.*exp(1i*f);
+        x = x/alpha;
+    end
+    if iter==6
+        params_FMM = Tree_parameters(params_FMM, mesh,6,voxel_size,7);
+    end
+    if mod(iter,2) == 1 || fullTFIMode
         Vr = 1./sqrt(abs(wG.*grad(real(P.*Col2Map(x)),voxel_size)).^2+e);
         w = m.*exp(1i*(ifftn(D.*fftn(P.*Col2Map(x)))+L(x(x_length+1:end))));
         reg = @(dx) [Map2Col(P.*div(wG.*(Vr.*(wG.*grad(real(P.*Col2Map(dx)),voxel_size))) ...
@@ -191,13 +209,8 @@ while (res_norm_ratio_x>tol_norm_ratio)&&(iter<max_iter)
         A =  @(dx) reg(dx) + 2*lambda*fidelity(dx);
 
         b = reg(x) + 2*lambda*DconvL_H( real(conj(w).*conj(1i).*(w-b0)) );
-
-        if(iter==1)
-            dx = real(cgsolve(A, -b, 0.01, cg_max_iter,cgTFI_LogInterval));
-        else
-            dx = real(cgsolve(A, -b, cg_tol, cg_max_iter,cgTFI_LogInterval));
-        end
-        %dx = real(gmres(A,-b,150,0.03,2));
+        
+        dx = real(cgsolve(A, -b, cg_tol, cg_max_iter,cgTFI_LogInterval));
 
         dx_print = [Map2Col(P.*Col2Map(dx));dx(x_length+1:end)];
         x_print = [Map2Col(P.*Col2Map(x));x(x_length+1:end)];
@@ -223,8 +236,8 @@ while (res_norm_ratio_x>tol_norm_ratio)&&(iter<max_iter)
             iter, res_norm_ratio, res_norm_ratio_x, res_norm_ratio_b, ...
             cost_data_history(iter), cost_reg_history(iter), minutes, seconds);
 
-
     else %加速chi收敛
+        
         x_inner = Col2Map(x);
 
         bi = m.*exp(1i*(f-L(x(x_length+1:end))));
@@ -261,13 +274,11 @@ while (res_norm_ratio_x>tol_norm_ratio)&&(iter<max_iter)
 
         fprintf('iter: %d; res_norm_ratio:%8.4f; cost_L2:%8.4f; cost:%8.4f\n elapsed_time: %d:%02d (min:sec).\n', ...
             iter, res_norm_ratio, cost_data_history(iter), cost_reg_history(iter), minutes, seconds);
-
-
     end
     if merit&&(iter<max_iter)
         wres = wres - mean(wres(mask(:)==1));
         a = wres(mask(:)==1);
-        factor = std(abs(a))*6;
+        factor = std(abs(a))*5;
         wres = abs(wres)/factor;
         wres(wres<1) = 1;
         N_std(mask==1) = N_std(mask==1).*wres(mask==1).^2;
@@ -279,10 +290,10 @@ end
 
 %%
 x_map = P.*reshape(x(1:x_length),matrix_size)/(2*pi*delta_TE*CF)*1e6;
+RDF = f-L(x(x_length+1:end));
 mask = logical(mask);
-if flag_CSF
-    x_map(mask) = x_map(mask) - mean(x_map(Mask_CSF));
-end
+x_map(mask) = x_map(mask) - mean(x_map(Mask_CSF));
+
 if  flag_padMatrix
     x_map=x_map(1+padSize_even(1):matrix_size(1)-padSize_even(1)-padSize_odd(1), ...
         1+padSize_even(2):matrix_size(2)-padSize_even(2)-padSize_odd(2), ...
@@ -292,5 +303,4 @@ if  flag_padMatrix
         1+padSize_even(3):matrix_size(3)-padSize_even(3)-padSize_odd(3));
 end
 gTFI = x_map.*mask;
-
 end

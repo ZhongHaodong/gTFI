@@ -10,6 +10,7 @@ binAssignment = params_FMM.binAssignment;
 
 leaf_depth = max(OT.BinDepths);
 d_nm = zeros([OT.BinCount,p+1,2*p+1]);
+
 %% downword
 cell_childLevel = find(OT.BinDepths==3);
 cell_ThisLevel = unique(OT.BinParents(cell_childLevel));
@@ -149,4 +150,44 @@ for i =1:length(cell_leafLevel)
     u(Index_Range(1):Index_Range(4),Index_Range(2):Index_Range(5),Index_Range(3):Index_Range(6)) =...
         sum(cell_mask.*R_final.*d_map,[4,5]);
 end
+
+%%
+% d_final = d_nm(cell_leafLevel,:,:);
+% u = zeros(size(OT.Mask));
+% R_final = gpuArray(R_final);
+% d_final_gpu = gpuArray(d_final);   % 一次性传到 GPU
+% 
+% for i = 1:length(cell_leafLevel)
+%     Index_Range = OT.BinIndex_Range(cell_leafLevel(i),:);
+%     % 取出这块对应的 mask（仍然是 CPU 数组）
+%     cell_mask_cpu = OT.Mask(Index_Range(1):Index_Range(4), ...
+%                             Index_Range(2):Index_Range(5), ...
+%                             Index_Range(3):Index_Range(6));
+%     % 若全是 0，就没必要算
+%     if all(cell_mask_cpu == 0)
+%         continue;
+%     end
+%     % 传到 GPU 并变 logical
+%     cell_mask = gpuArray(logical(cell_mask_cpu));
+% 
+%     % 取出第 i 个局部展开系数，这通常是 [p+1, 2p+1]
+%     % reshape 成 [1,1,1,p+1,2p+1]，以便和 R_part 在最后两个维度广播相乘
+%     d_map = reshape(d_final_gpu(i,:,:), [1 1 1 (p+1) (2*p+1)]);
+% 
+%     % 用隐式广播而不是 repmat
+%     % cell_mask, R_part, d_map 三者尺寸:
+%     %   cell_mask -> [Nx, Ny, Nz]
+%     %   R_part    -> [Nx, Ny, Nz, p+1, 2p+1]
+%     %   d_map     -> [1 , 1 , 1 , p+1, 2p+1]
+%     % 这样 R_part .* d_map 会在第 4、5 维做广播乘法
+%     % 再乘上 cell_mask（在前面 3 维），然后对 [4,5] 维求和
+%     u_part = sum(cell_mask .* (R_final .* d_map), [4,5]);
+% 
+%     % 写回 u
+%     u(Index_Range(1):Index_Range(4), ...
+%       Index_Range(2):Index_Range(5), ...
+%       Index_Range(3):Index_Range(6)) = u_part;
+% end
+
+
 end

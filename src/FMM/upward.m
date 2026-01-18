@@ -18,16 +18,17 @@ R_gq_f_MOM = params_FMM.R_gq_f_MOM;
 dRdn_gq_f_MOM = params_FMM.dRdn_gq_f_MOM;
 R_M2M = params_FMM.R_M2M;
 D2N = params_FMM.D2N;
-
 c_nm = zeros(OT.BinCount,p+1,2*p+1);
 u_n = D2N*fs.*gather(R_gq_f_MOM)-fs.*gather(dRdn_gq_f_MOM);
 leaf_depth = max(OT.BinDepths);
 
 %% leaf_moment
+
 cell_ThisLevel = find(OT.BinDepths==leaf_depth);
 for cell = 1:length(cell_ThisLevel)
     c_nm(cell_ThisLevel(cell),:,:) = sum(u_n(OT.PointBins==cell_ThisLevel(cell),:,:),1);
 end
+
 %% M2M
 for cell_depth = (leaf_depth-1):-1:2
     c_nm_expansion = gpuArray(padarray(c_nm,[0,0,p],0));
@@ -35,11 +36,13 @@ for cell_depth = (leaf_depth-1):-1:2
     cell_childLevel = find(OT.BinDepths==(cell_depth+1));
     BinParents = OT.BinParents;
     M2M = zeros(length(cell_childLevel),p+1,2*p+1);
+
     for n = 0:p
         for m = -n:n
             M2M(:,n+1,m+p+1) = squeeze(sum(R_M2M(cell_childLevel,1:n+1,:).*c_nm_expansion(cell_childLevel,n+1:-1:1,((m+2*p+1)+p:-1:(m+2*p+1)-p)),[2,3]));
         end
     end
+
     for i = 1:length(cell_ThisLevel)
 
         cell_child = find(BinParents==cell_ThisLevel(i));
@@ -48,5 +51,7 @@ for cell_depth = (leaf_depth-1):-1:2
         end
        
     end
+
 end
+
 end
