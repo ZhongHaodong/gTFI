@@ -23,15 +23,8 @@ The `lib` folder contains third-party libraries, which are included for convenie
 
 ## Citation
 
-If you use this code in your research, please cite the corresponding IEEE TMI paper:
+If you use this code in your research, please cite the corresponding paper:
+H. Zhong, G. Li, Y. Wang and J. Li, "Green’s Function Total Field Inversion for Quantitative Susceptibility Mapping," in IEEE Transactions on Medical Imaging, doi: 10.1109/TMI.2025.3639776.
 
-```bibtex
-@article{zhong_gTFI_TMI,
-  title   = {Green's Function Total Field Inversion for Quantitative Susceptibility Mapping},
-  author  = {Zhong, Haodong and Li, Gaiying and Li, Gaiying and Wang, Yi and Li, Jianqi},
-  journal = {IEEE Transactions on Medical Imaging},
-  year    = {2026},
-  note    = {Accepted},
-}
 
 
