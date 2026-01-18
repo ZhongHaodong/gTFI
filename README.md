@@ -19,4 +19,19 @@ This project is licensed under the BSD 3-Clause License. See the [LICENSE](LICEN
 ### Third-Party Libraries
 The `lib` folder contains third-party libraries, which are included for convenience. These libraries are licensed under their own terms. These libraries are not covered by this project's BSD 3-Clause license.
 
+把下面这段直接加到 README（建议放在 Features 后、License 前）：
+
+## Citation
+
+If you use this code in your research, please cite the corresponding IEEE TMI paper:
+
+```bibtex
+@article{zhong_gTFI_TMI,
+  title   = {Green's Function Total Field Inversion for Quantitative Susceptibility Mapping},
+  author  = {Zhong, Haodong and Li, Gaiying and Li, Gaiying and Wang, Yi and Li, Jianqi},
+  journal = {IEEE Transactions on Medical Imaging},
+  year    = {2026},
+  note    = {Accepted},
+}
+
 
