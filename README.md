@@ -1,4 +1,4 @@
-# Green's Function Total Field Inversion (gTFI) for Quantitative Susceptibility Mapping
+# Green's Function Total Field Inversion (gTFI) for Quantitative Susceptibility Mapping (QSM) in MRI
 ![gTFI](image/gTFI.png?v=1&type=image)
 ## Introduction
 
