@@ -1,7 +1,7 @@
 function [gTFI,RDF] = gTFI_FMM(params_gTFI,mesh)
 %   Created by Haodong Zhong on 2024.11.26
 %   Last modified by Haodong Zhong on 2026.01.18
-%% 必要参数
+%% Required parameters
 OTdepth = 5;
 delta_TE = params_gTFI.delta_TE;
 CF = params_gTFI.CF;
@@ -12,7 +12,7 @@ f = params_gTFI.f;
 N_std = params_gTFI.N_std;
 B0_dir = params_gTFI.B0_dir;
 lambda = params_gTFI.lambda;
-%% 可选参数
+%% Optional parameters
 R2s = getOrDefault(params_gTFI, 'R2s', []);
 flag_CSF = getOrDefault(params_gTFI,'flag_CSF', true);
 Mask_CSF = params_gTFI.Mask_CSF;
@@ -42,7 +42,7 @@ cg_tol_init = getParam_Master(params_gTFI, 'cg_tol_init', 0.01, master_mode);
 fullTFIMode = getParam_Master(params_gTFI, 'fullTFIMode', false, master_mode);
 merit = getParam_Master(params_gTFI, 'merit', true, master_mode);
 alpha = getParam_Master(params_gTFI, 'alpha', 0.05, master_mode);
-%% matrix size 的预处理
+%% Preprocessing of matrix size
 matrix_size = size(f);
 old_matrix_size=matrix_size;
 flag_padMatrix=1;
@@ -85,7 +85,7 @@ if flag_padMatrix
     f = padarray(f,padSize_odd,0,'post');
     R2s = padarray(R2s,padSize_odd,0,'post');
 end
-%% FMM预计算
+%% FMM precomputation
 params_FMM = [];
 % Calculate OCtree
 nv = faceNormal(triangulation(mesh.faces, double(mesh.vertices)));
@@ -93,7 +93,7 @@ centroid = (mesh.vertices(mesh.faces(:,1),:) + ...
     mesh.vertices(mesh.faces(:,2),:) + ...
     mesh.vertices(mesh.faces(:,3),:)) ./ 3; % Triangle centroids
 params_FMM.OcTree = OcTree_matrix(mask,centroid,voxel_size,OTdepth);
-%计算仅依赖OCtree的参数
+% Compute parameters that depend only on the OcTree
 [params_FMM.Neighbor_list,params_FMM.Interaction_List] = neighbor_searcher(params_FMM);
 params_FMM = Tree_parameters(params_FMM, mesh,7,voxel_size,7);
 
@@ -142,7 +142,7 @@ e = e.*P.*P;
 if flag_CSF
     LT_reg = @(x) Mask_CSF.*(x - mean(x(Mask_CSF)));
 end
-%% 待拟合量及拟合函数的初始化
+%% Initialization of unknowns and forward operators
 x_length = matrix_size(1)*matrix_size(2)*matrix_size(3);
 fb_length = size(nv,1);
 total_length = x_length + fb_length;
@@ -166,10 +166,10 @@ L_H = @(x) LH_FMM(x,p,params_FMM,near_field);
 
 A_init= @(x) L_H(mask.*mask.*L(x));
 
-%计算fs的初始值
+% Compute the initial estimate of fb
 x(x_length+1:end) = real(cgsolve(A_init,L_H(mask.*f),cg_tol_init,6,6));
 fprintf('initial fb calculation completed.\n');
-%% 高斯牛顿法
+%% Gauss–Newton iterations
 iter=0;
 
 f  = f*alpha;
@@ -236,7 +236,7 @@ while ( (iter < 5) || (res_norm_ratio > tol_norm_ratio) ) && (iter < max_iter)
             iter, res_norm_ratio, res_norm_ratio_x, res_norm_ratio_b, ...
             cost_data_history(iter), cost_reg_history(iter), minutes, seconds);
 
-    else %加速chi收敛
+    else % Accelerate convergence of chi
         
         x_inner = Col2Map(x);
 
